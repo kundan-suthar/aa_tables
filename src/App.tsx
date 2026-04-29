@@ -7,13 +7,14 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import React, { useReducer, useState } from "react"
+import React, { useReducer, useRef, useState } from "react"
 import { Pencil, ChevronDown } from "lucide-react"
 import { Checkbox } from "./components/ui/checkbox"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 
 const initialState: State = {
-  data: (flightsData.flights.slice(0, 30)) as Flight[],
+  data: (flightsData.flights) as Flight[],
   filteredData: (flightsData.flights) as Flight[],
   editingId: null,
 }
@@ -52,6 +53,7 @@ const DayCircle = ({ active, label }: { active: boolean, label: string }) => (
 const Toggle = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
   <button
     onClick={onChange}
+    disabled={true}
     className={`w-10 h-5 rounded-full relative transition-colors ${checked ? 'bg-[#10b981]' : 'bg-[#e2e8f0]'}`}
   >
     <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -196,56 +198,83 @@ function App() {
     getCoreRowModel: getCoreRowModel(),
   })
 
+  const { rows } = table.getRowModel()
+
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80,   // closer to actual rendered height
+    overscan: 8,
+  })
+
   return (
     <Layout>
       <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
+
         <div className="max-w-[1240px] mx-auto">
+
           <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden">
-            <table className="w-full text-left border-collapse table-fixed">
-              <colgroup>
-                <col className="w-[50px]" />
-                <col className="w-[80px]" />
-                <col className="w-[60px]" />
-                <col className="w-[100px]" />
-                <col className="w-[80px]" />
-                <col className="w-[100px]" />
-                <col className="w-[180px]" />
-                <col className="w-[120px]" />
-                <col className="w-[100px]" />
-                <col className="w-[80px]" />
-                <col className="w-[80px]" />
-              </colgroup>
-              <thead>
-                {table.getHeaderGroups().map(headerGroup => (
-                  <tr key={headerGroup.id} className="bg-[#f8fafc] border-b border-slate-100">
-                    {headerGroup.headers.map(header => (
-                      <th key={header.id} className="px-4 py-3 text-[10px] font-bold text-slate-400 tracking-[0.1em] uppercase overflow-hidden text-ellipsis whitespace-nowrap">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <tr
-                    key={row.id}
-                    className={`group border-b border-slate-50 last:border-0 hover:bg-[#c2c4c7] transition-all relative ${row.getIsSelected() ? 'bg-[#c2c4c7]' : ''}`}
-                  >
-                    {/* Selection indicator bar */}
-                    {/* {row.getIsSelected() && (
-                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#5c59f2] z-10" />
-                    )} */}
-                    {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} className="px-4 py-4 align-middle overflow-hidden">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-y-auto h-[600px] relative" ref={parentRef}>
+              <table className="w-full text-left border-collapse table-fixed">
+                <colgroup>
+                  <col className="w-[50px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[60px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[180px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[80px]" />
+                </colgroup>
+                <thead className="sticky top-0 z-10 bg-[#f8fafc] border-b border-slate-100">
+                  {table.getHeaderGroups().map(headerGroup => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map(header => (
+                        <th key={header.id} className="px-4 py-3 text-[10px] font-bold text-slate-400 tracking-[0.1em] uppercase overflow-hidden text-ellipsis whitespace-nowrap">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {virtualizer.getVirtualItems().length > 0 && virtualizer.getVirtualItems()[0].start > 0 && (
+                    <tr>
+                      <td colSpan={11} style={{ height: `${virtualizer.getVirtualItems()[0].start}px`, border: 'none' }} />
+                    </tr>
+                  )}
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const row = rows[virtualRow.index]
+                    return (
+                      <tr
+                        key={row.id}
+                        data-index={virtualRow.index}
+                        ref={virtualizer.measureElement}
+                        className={`group border-b border-slate-50 hover:bg-[#e7e7e7] transition-all ${row.getIsSelected() ? 'bg-[#e7e7e7]' : ''
+                          }`}
+                      >
+                        {row.getVisibleCells().map(cell => (
+                          <td key={cell.id} className="px-4 py-4 align-middle overflow-hidden">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                  {virtualizer.getVirtualItems().length > 0 && (virtualizer.getTotalSize() - virtualizer.getVirtualItems()[virtualizer.getVirtualItems().length - 1].end) > 0 && (
+                    <tr>
+                      <td colSpan={11} style={{ height: `${virtualizer.getTotalSize() - virtualizer.getVirtualItems()[virtualizer.getVirtualItems().length - 1].end}px`, border: 'none' }} />
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+
         </div>
       </div>
     </Layout>
