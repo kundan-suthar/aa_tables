@@ -7,16 +7,36 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import React, { useEffect, useReducer, useRef, useState } from "react"
+import { useReducer, useRef, useState } from "react"
 import { Loader2, Check, X, AlertCircle, Pencil, ChevronDown, Trash } from "lucide-react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Checkbox } from "./components/ui/checkbox"
-import { DatePickerWithRange } from "./components/date-range"
 import { DatePickerSimple } from "./components/date-picker"
-const initialState: State = {
+import { Toggle } from "./components/toggle"
+import { DayCircle } from "./components/day-circle"
+import { TableFilters } from "./components/table-filters"
+import { useMemo } from "react"
+export interface FilterCriteria {
+  dateRange: { from: string | null; to: string | null };
+  days: number[];
+  status: "Active" | "Inactive" | "all";
+  aoc: string;
+  bodyType: "narrow_body" | "wide_body" | "all";
+}
+
+const initialFilters: FilterCriteria = {
+  dateRange: { from: null, to: null },
+  days: [],
+  status: "all",
+  aoc: "all",
+  bodyType: "all",
+};
+
+const initialState: State & { filters: FilterCriteria } = {
   data: (flightsData.flights) as Flight[],
   filteredData: (flightsData.flights) as Flight[],
   editingId: null,
+  filters: initialFilters,
 }
 
 type Action =
@@ -26,36 +46,93 @@ type Action =
   | { type: "TOGGLE_STATUS"; payload: string }
   | { type: "EDIT_FLIGHT", payload: string | null }
   | { type: "UPDATE_FLIGHT", payload: Flight }
+  | { type: "SET_FILTER"; payload: Partial<FilterCriteria> }
+  | { type: "CLEAR_FILTERS" }
 
-function reducer(state: State, action: Action): State {
+function filterFlights(data: Flight[], filters: FilterCriteria): Flight[] {
+  return data.filter(flight => {
+    if (filters.status !== "all" && flight.status !== filters.status) return false;
+    if (filters.bodyType !== "all" && flight.bodyType !== filters.bodyType) return false;
+    if (filters.aoc !== "all" && flight.aoc !== filters.aoc) return false;
+
+
+
+    if (filters.days.length > 0) {
+      if (!flight.daysOfOperation.some(d => filters.days.includes(d))) return false;
+    }
+
+    if (filters.dateRange.from && filters.dateRange.to) {
+      // if (!(flight.startDate <= filters.dateRange.to && flight.endDate >= filters.dateRange.from)) return false;
+      if ((flight.startDate <= filters.dateRange.from && flight.endDate >= filters.dateRange.to)) {
+        return true
+      } else {
+        return false
+      }
+    }
+
+    return true;
+  });
+}
+
+function reducer(state: State & { filters: FilterCriteria }, action: Action): State & { filters: FilterCriteria } {
   switch (action.type) {
     case "SET_DATA":
-      return { ...state, data: action.payload }
-    case "DELETE_BY_ID":
       return {
         ...state,
-        data: state.data.filter((flight) => flight.id !== action.payload),
+        data: action.payload,
+        filteredData: filterFlights(action.payload, state.filters)
       }
-    case "DELETE_MULTIPLE":
+    case "DELETE_BY_ID": {
+      const nextData = state.data.filter((flight) => flight.id !== action.payload);
       return {
         ...state,
-        data: state.data.filter((flight) => !action.payload.includes(flight.id)),
+        data: nextData,
+        filteredData: filterFlights(nextData, state.filters)
       }
-    case "TOGGLE_STATUS":
+    }
+    case "DELETE_MULTIPLE": {
+      const nextData = state.data.filter((flight) => !action.payload.includes(flight.id));
       return {
         ...state,
-        data: state.data.map(f => f.id === action.payload ? { ...f, status: f.status === "Active" ? "Inactive" : "Active" } : f)
+        data: nextData,
+        filteredData: filterFlights(nextData, state.filters)
       }
+    }
+    case "TOGGLE_STATUS": {
+      const nextData = state.data.map(f => f.id === action.payload ? { ...f, status: f.status === "Active" ? "Inactive" : "Active" } : f);
+      return {
+        ...state,
+        data: nextData,
+        filteredData: filterFlights(nextData, state.filters)
+      }
+    }
     case "EDIT_FLIGHT":
       return {
         ...state,
         editingId: action.payload
       }
-    case "UPDATE_FLIGHT":
+    case "UPDATE_FLIGHT": {
+      const nextData = state.data.map(f => f.id === action.payload.id ? action.payload : f);
       return {
         ...state,
-        data: state.data.map(f => f.id === action.payload.id ? action.payload : f),
+        data: nextData,
+        filteredData: filterFlights(nextData, state.filters),
         editingId: null
+      }
+    }
+    case "SET_FILTER": {
+      const nextFilters = { ...state.filters, ...action.payload };
+      return {
+        ...state,
+        filters: nextFilters,
+        filteredData: filterFlights(state.data, nextFilters)
+      }
+    }
+    case "CLEAR_FILTERS":
+      return {
+        ...state,
+        filters: initialFilters,
+        filteredData: state.data
       }
     default:
       return state
@@ -64,25 +141,8 @@ function reducer(state: State, action: Action): State {
 
 const columnHelper = createColumnHelper<Flight>()
 
-// Small helper components for cells
-const DayCircle = ({ active, label }: { active: boolean, label: string }) => (
-  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${active
-    ? 'bg-[#5c59f2] text-white'
-    : 'bg-[#f1f5f9] text-[#94a3b8]'
-    }`}>
-    {label}
-  </div>
-)
 
-const Toggle = ({ checked, onChange, disabled = false }: { checked: boolean, onChange: () => void, disabled?: boolean }) => (
-  <button
-    onClick={onChange}
-    disabled={disabled}
-    className={`w-10 h-5 rounded-full relative transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:ring-2 hover:ring-slate-200'} ${checked ? 'bg-[#10b981]' : 'bg-[#e2e8f0]'}`}
-  >
-    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
-  </button>
-)
+
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -90,6 +150,18 @@ function App() {
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
   const [tempEditData, setTempEditData] = useState<Flight | null>(null);
+
+  const aocOptions = useMemo(() => {
+    return Array.from(new Set(state.data.map(f => f.aoc))).sort();
+  }, [state.data]);
+
+  const handleFilterChange = (filters: Partial<FilterCriteria>) => {
+    dispatch({ type: "SET_FILTER", payload: filters });
+  };
+
+  const handleClearFilters = () => {
+    dispatch({ type: "CLEAR_FILTERS" });
+  };
 
   const startEditing = (flight: Flight) => {
     setTempEditData({ ...flight });
@@ -111,11 +183,11 @@ function App() {
       return next;
     });
 
-    // Simulate async save
+
     try {
       await new Promise((resolve, reject) => {
         setTimeout(() => {
-          // 90% success rate for simulation
+
           Math.random() > 0.1 ? resolve(true) : reject("Failed to save");
         }, 1000);
       });
@@ -357,7 +429,7 @@ function App() {
   ]
 
   const table = useReactTable({
-    data: state.data,
+    data: state.filteredData,
     columns,
     state: {
       rowSelection,
@@ -373,7 +445,7 @@ function App() {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 80,   // closer to actual rendered height
+    estimateSize: () => 80,
     overscan: 8,
   })
 
@@ -382,6 +454,12 @@ function App() {
       <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
 
         <div className="max-w-[1240px] mx-auto space-y-4">
+          <TableFilters
+            filters={state.filters}
+            onFilterChange={handleFilterChange}
+            onClear={handleClearFilters}
+            aocOptions={aocOptions}
+          />
 
           <div className="flex justify-between items-center bg-white p-4 min-h-16 rounded-xl shadow-sm border border-slate-200">
             <h2 className="text-lg font-bold text-slate-800">Flight Schedules</h2>

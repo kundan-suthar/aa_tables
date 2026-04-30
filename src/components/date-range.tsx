@@ -14,43 +14,44 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 
-export function DatePickerWithRange() {
-    const [date, setDate] = React.useState<DateRange | undefined>({
-        from: new Date(new Date().getFullYear(), 0, 20),
-        to: addDays(new Date(new Date().getFullYear(), 0, 20), 20),
-    })
-
+export function DatePickerWithRange({ 
+  value, 
+  onChange 
+}: { 
+  value: DateRange | undefined, 
+  onChange: (date: DateRange | undefined) => void 
+}) {
     return (
-        <Field className="mx-auto w-60">
-            <FieldLabel htmlFor="date-picker-range">Date Picker Range</FieldLabel>
+        <Field className="w-fit">
+            <FieldLabel htmlFor="date-picker-range">Date Range</FieldLabel>
             <Popover>
                 <PopoverTrigger asChild>
                     <Button
                         variant="outline"
                         id="date-picker-range"
-                        className="justify-start px-2.5 font-normal"
+                        className="justify-start px-2.5 font-normal w-[240px] hover:cursor-pointer"
                     >
-                        <CalendarIcon />
-                        {date?.from ? (
-                            date.to ? (
+                        <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
+                        {value?.from ? (
+                            value.to ? (
                                 <>
-                                    {format(date.from, "LLL dd, y")} -{" "}
-                                    {format(date.to, "LLL dd, y")}
+                                    {format(value.from, "LLL dd, y")} -{" "}
+                                    {format(value.to, "LLL dd, y")}
                                 </>
                             ) : (
-                                format(date.from, "LLL dd, y")
+                                format(value.from, "LLL dd, y")
                             )
                         ) : (
-                            <span>Pick a date</span>
+                            <span className="text-slate-400">Pick a date range</span>
                         )}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                         mode="range"
-                        defaultMonth={date?.from}
-                        selected={date}
-                        onSelect={setDate}
+                        defaultMonth={value?.from}
+                        selected={value}
+                        onSelect={onChange}
                         numberOfMonths={2}
                     />
                 </PopoverContent>
