@@ -27,3 +27,12 @@ export type State = {
   filteredData: Flight[];
   editingId: string | null;
 };
+
+export interface FilterCriteria {
+  dateRange: { from: string | null; to: string | null };
+  days: number[];
+  status: "Active" | "Inactive" | "all";
+  aoc: string;
+  bodyType: "narrow_body" | "wide_body" | "all";
+  searchQuery: string;
+}
