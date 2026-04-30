@@ -1,10 +1,9 @@
-import React from "react";
-import type { FilterCriteria } from "../App";
 import { DatePickerWithRange } from "./date-range";
 import { RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";
 import { type DateRange } from "react-day-picker";
+import type { FilterCriteria } from "@/types/flight";
 
 interface TableFiltersProps {
     filters: FilterCriteria;

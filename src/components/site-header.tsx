@@ -1,7 +1,7 @@
-import { Search } from "lucide-react"
+// import { Search } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Input } from "@/components/ui/input"
+// import { SidebarTrigger } from "@/components/ui/sidebar"
+// import { Input } from "@/components/ui/input"
 
 export function SiteHeader() {
     return (

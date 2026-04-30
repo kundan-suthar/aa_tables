@@ -1,7 +1,5 @@
 "use client"
-
-import * as React from "react"
-import { addDays, format } from "date-fns"
+import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { type DateRange } from "react-day-picker"
 
@@ -14,12 +12,12 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 
-export function DatePickerWithRange({ 
-  value, 
-  onChange 
-}: { 
-  value: DateRange | undefined, 
-  onChange: (date: DateRange | undefined) => void 
+export function DatePickerWithRange({
+    value,
+    onChange
+}: {
+    value: DateRange | undefined,
+    onChange: (date: DateRange | undefined) => void
 }) {
     return (
         <Field className="w-fit">
