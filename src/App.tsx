@@ -8,7 +8,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { useReducer, useRef, useState } from "react"
-import { Loader2, Check, X, AlertCircle, Pencil, ChevronDown, Trash } from "lucide-react"
+import { Loader2, Check, X, AlertCircle, Pencil, ChevronDown, Trash, Search } from "lucide-react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Checkbox } from "./components/ui/checkbox"
 import { DatePickerSimple } from "./components/date-picker"
@@ -22,6 +22,7 @@ export interface FilterCriteria {
   status: "Active" | "Inactive" | "all";
   aoc: string;
   bodyType: "narrow_body" | "wide_body" | "all";
+  searchQuery: string;
 }
 
 const initialFilters: FilterCriteria = {
@@ -30,6 +31,7 @@ const initialFilters: FilterCriteria = {
   status: "all",
   aoc: "all",
   bodyType: "all",
+  searchQuery: "",
 };
 
 const initialState: State & { filters: FilterCriteria } = {
@@ -69,6 +71,13 @@ function filterFlights(data: Flight[], filters: FilterCriteria): Flight[] {
         return false
       }
     }
+    if (filters.searchQuery.trim()) {
+      const q = filters.searchQuery.trim().toLowerCase();
+      const matchesFlightNumber = flight.flightNumber.toLowerCase().includes(q);
+      const matchesOrigin = flight.origin.toLowerCase().includes(q);
+      const matchesDestination = flight.destination.toLowerCase().includes(q);
+      if (!matchesFlightNumber && !matchesOrigin && !matchesDestination) return false;
+    }
 
     return true;
   });
@@ -99,7 +108,11 @@ function reducer(state: State & { filters: FilterCriteria }, action: Action): St
       }
     }
     case "TOGGLE_STATUS": {
-      const nextData = state.data.map(f => f.id === action.payload ? { ...f, status: f.status === "Active" ? "Inactive" : "Active" } : f);
+      const nextData = state.data.map(f =>
+        f.id === action.payload
+          ? { ...f, status: (f.status === "Active" ? "Inactive" : "Active") as Flight["status"] }
+          : f
+      );
       return {
         ...state,
         data: nextData,
@@ -463,6 +476,28 @@ function App() {
 
           <div className="flex justify-between items-center bg-white p-4 min-h-16 rounded-xl shadow-sm border border-slate-200">
             <h2 className="text-lg font-bold text-slate-800">Flight Schedules</h2>
+
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by flight no., origin, or destination…"
+                value={state.filters.searchQuery}
+                onChange={(e) =>
+                  dispatch({ type: "SET_FILTER", payload: { searchQuery: e.target.value } })
+                }
+                className="w-full pl-9 pr-4 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+              />
+              {state.filters.searchQuery && (
+                <button
+                  onClick={() => dispatch({ type: "SET_FILTER", payload: { searchQuery: "" } })}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
             {Object.keys(rowSelection).length > 0 && (
               <button
                 onClick={handleDeleteSelected}
